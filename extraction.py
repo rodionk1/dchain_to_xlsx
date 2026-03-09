@@ -122,6 +122,7 @@ def extract_activation_data(filename, region_number=None, time_value=None, time_
                         # Parse isotope name (first 1-2 elements)
                         iso_name = None
                         atoms_val = None
+                        activitycc_val = None
                         activity_val = None
                         
                         if len(parts) >= 3:
@@ -132,10 +133,12 @@ def extract_activation_data(filename, region_number=None, time_value=None, time_
                                 mass = parts[1]
                                 iso_name = f"{element}{mass}"
                                 
-                                # Activity is typically the 3rd numeric column after iso name
+                                # Activity pr cc is typically the 3rd numeric column after iso name
+                                # Activity is often in the 4th column (index 3)
                                 try:
                                     atoms_val = float(parts[2])
-                                    activity_val = float(parts[3])
+                                    activitycc_val = float(parts[3])
+                                    activity_val = float(parts[4])
                                 except (ValueError, IndexError):
                                     i += 1
                                     continue
