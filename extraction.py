@@ -1,6 +1,32 @@
 import re
 
 
+def convert_to_seconds(value, unit):
+    """
+    Convert time value to seconds based on unit.
+    
+    Args:
+        value (float): Time value
+        unit (str): Time unit ('s', 'm', 'h', 'd', 'y')
+    
+    Returns:
+        float: Time in seconds
+    """
+    unit = unit.lower()
+    if unit == 's':
+        return value
+    elif unit == 'm':
+        return value * 60
+    elif unit == 'h':
+        return value * 3600
+    elif unit == 'd':
+        return value * 86400
+    elif unit == 'y':
+        return value * 31536000  # 365 days
+    else:
+        return value  # Default to seconds if unknown unit
+
+
 def format_half_life(half_life_seconds):
     """
     Format half-life in seconds to appropriate units.
@@ -320,10 +346,22 @@ def extract_activation_table(filename, region_number=None):
     time_sections = []
     found_region = None
     
+    # Extract irradiation time from header
+    irradiation_time_seconds = None
+    for line in lines[:20]:  # Check first 20 lines for header
+        if 'irradiation time' in line:
+            match = re.search(r'irradiation time\s*\.\.+\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
+            if match:
+                irrad_val = float(match.group(1))
+                irrad_unit = match.group(2)
+                irradiation_time_seconds = convert_to_seconds(irrad_val, irrad_unit)
+                break
+    
     # Find all output time sections
     i = 0
     while i < len(lines):
         line = lines[i]
+        time_label = "0.0 s"  # Default initialization
         
         # Find region marker (if specified)
         if region_number is not None and 'region number' in line and '.....' in line:
@@ -338,15 +376,47 @@ def extract_activation_table(filename, region_number=None):
         
         # Find output time header
         if '--- output time ---' in line:
-            # Parse cooldown time from "after the last shutdown" brackets
-            cooldown_str = "0.0 s"  # Default for immediately after irradiation
+            # Extract output time value
+            output_time_seconds = None
+            parts = line.split()
+            for j, part in enumerate(parts):
+                if part.replace('.', '').replace('E', '').replace('-', '').replace('+', '').isdigit():
+                    # Look for the time value followed by unit in brackets
+                    if j + 1 < len(parts) and '[' in parts[j + 1]:
+                        time_val = float(part)
+                        unit_match = re.search(r'\[([a-zA-Z]+)\]', parts[j + 1])
+                        if unit_match:
+                            unit = unit_match.group(1)
+                            output_time_seconds = convert_to_seconds(time_val, unit)
+                        break
             
-            # Look for "after the last shutdown" in this line
-            shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
-            if shutdown_match:
-                cooldown_val = float(shutdown_match.group(1))
-                cooldown_unit = shutdown_match.group(2)
-                cooldown_str = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
+            # Determine time label based on comparison with irradiation time
+            time_label = "0.0 s"  # Default
+            
+            if output_time_seconds is not None and irradiation_time_seconds is not None:
+                if output_time_seconds < irradiation_time_seconds:
+                    # During irradiation
+                    formatted_time = format_cooldown_time(f"{output_time_seconds} [s]")
+                    time_label = f"irradiation time: {formatted_time}"
+                else:
+                    # After irradiation - check for shutdown marker
+                    shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
+                    if shutdown_match:
+                        cooldown_val = float(shutdown_match.group(1))
+                        cooldown_unit = shutdown_match.group(2)
+                        formatted_cooldown = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
+                        time_label = f"cooldown time: {formatted_cooldown}"
+                    else:
+                        # Immediately after irradiation
+                        time_label = "cooldown time: 0.0 s"
+            else:
+                # Fallback: look for shutdown marker anyway
+                shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
+                if shutdown_match:
+                    cooldown_val = float(shutdown_match.group(1))
+                    cooldown_unit = shutdown_match.group(2)
+                    formatted_cooldown = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
+                    time_label = f"cooldown time: {formatted_cooldown}"
             
             # Find the isotope table for this time section
             isotopes_data = []
@@ -394,7 +464,7 @@ def extract_activation_table(filename, region_number=None):
             
             if isotopes_data:
                 time_sections.append({
-                    'time': cooldown_str,
+                    'time': time_label,
                     'isotopes': isotopes_data
                 })
         

@@ -464,6 +464,11 @@
 
         // Format cooldown time for display
         function formatCooldownTime(timeStr) {
+            // If it's already formatted with irradiation/cooldown labels, return as-is
+            if (timeStr.includes('irradiation time:') || timeStr.includes('cooldown time:')) {
+                return timeStr;
+            }
+            
             // Parse the time string
             const match = timeStr.match(/([0-9.E+-]+)\s*\[([a-zA-Z]+)\]/);
             if (!match) return timeStr;
