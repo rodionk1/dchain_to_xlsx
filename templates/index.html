@@ -263,6 +263,7 @@
             100% { transform: rotate(360deg); }
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -318,7 +319,7 @@
                     <tbody id="tableBody">
                     </tbody>
                 </table>
-                <button class="export-btn" id="exportBtn">📥 Export as CSV</button>
+                <button class="export-btn" id="exportBtn">📥 Export as XLSX</button>
             </div>
         </div>
     </div>
@@ -489,36 +490,93 @@
             return timeStr;
         }
 
-        // Export to CSV
+        // Export to XLSX
         document.getElementById('exportBtn').addEventListener('click', () => {
             if (!currentData) return;
 
-            // Create CSV header
-            let csv = 'Isotope,Half-life,Unit';
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+
+            // Helper function to get top 15 isotopes by activity in first column
+            function getTopIsotopes() {
+                const isotopeActivities = currentData.isotopes.map(isotope => {
+                    const firstTime = currentData.times[0];
+                    const activity = currentData.data[isotope][firstTime] || 0;
+                    return { isotope, activity };
+                });
+
+                // Sort by activity descending and take top 15
+                return isotopeActivities
+                    .sort((a, b) => b.activity - a.activity)
+                    .slice(0, 15)
+                    .map(item => item.isotope);
+            }
+
+            // Sheet 1: All activation data
+            const allData = [];
+
+            // Add header with overhead
+            allData.push(['Activation Data - Activity values in Bq/cc']);
+            allData.push(['']); // Empty row
+            allData.push(['Region', currentData.region]);
+            allData.push(['']); // Empty row
+
+            // Create header row
+            const headerRow = ['Isotope', 'Half-life', 'Unit'];
             currentData.times.forEach(time => {
                 const formattedTime = formatCooldownTime(time);
-                csv += `,${formattedTime}`;
+                headerRow.push(formattedTime);
             });
-            csv += '\n';
+            allData.push(headerRow);
 
-            // Add data rows
+            // Add data rows for all isotopes
             currentData.isotopes.forEach(isotope => {
                 const isotopeData = currentData.data[isotope];
-                csv += `${isotope},${isotopeData.half_life},${isotopeData.half_life_unit}`;
+                const row = [isotope, isotopeData.half_life, isotopeData.half_life_unit];
                 currentData.times.forEach(time => {
                     const activity = isotopeData[time] || 0;
-                    csv += `,${activity}`;
+                    row.push(activity);
                 });
-                csv += '\n';
+                allData.push(row);
             });
 
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `activation_table_region${currentData.region}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
+            const ws1 = XLSX.utils.aoa_to_sheet(allData);
+            XLSX.utils.book_append_sheet(wb, ws1, 'All Data');
+
+            // Sheet 2: Top 15 isotopes
+            const topIsotopes = getTopIsotopes();
+            const topData = [];
+
+            // Add header with overhead
+            topData.push(['Top 15 Isotopes by Activity - Activity values in Bq/cc']);
+            topData.push(['']); // Empty row
+            topData.push(['Region', currentData.region]);
+            topData.push(['']); // Empty row
+
+            // Create header row
+            const topHeaderRow = ['Isotope', 'Half-life', 'Unit'];
+            currentData.times.forEach(time => {
+                const formattedTime = formatCooldownTime(time);
+                topHeaderRow.push(formattedTime);
+            });
+            topData.push(topHeaderRow);
+
+            // Add data rows for top 15 isotopes
+            topIsotopes.forEach(isotope => {
+                const isotopeData = currentData.data[isotope];
+                const row = [isotope, isotopeData.half_life, isotopeData.half_life_unit];
+                currentData.times.forEach(time => {
+                    const activity = isotopeData[time] || 0;
+                    row.push(activity);
+                });
+                topData.push(row);
+            });
+
+            const ws2 = XLSX.utils.aoa_to_sheet(topData);
+            XLSX.utils.book_append_sheet(wb, ws2, 'Top 15 Isotopes');
+
+            // Generate and download XLSX file
+            XLSX.writeFile(wb, `activation_table_region${currentData.region}.xlsx`);
         });
 
         // Utility functions
