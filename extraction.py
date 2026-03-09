@@ -114,7 +114,7 @@ def extract_activation_data(filename, region_number=None, time_value=None, time_
     Returns:
         dict: Dictionary containing:
             - 'isotopes': list of isotope names
-            - 'activities': list of activity values (in Bq/cc)
+            - 'activities': list of activity values (in Bq)
             - 'atoms': list of atom concentrations
             - 'half_lives': list of half-lives (formatted strings)
             - 'region': region number
@@ -320,7 +320,7 @@ def extract_activation_table(filename, region_number=None):
     Returns a table where:
     - Rows are isotopes
     - Columns are cooldown time points (time after last shutdown)
-    - Values are activity in Bq/cc
+    - Values are activity in Bq
     
     Time points are extracted from "(after the last shutdown: XX [unit])" markers.
     If no such marker is present, the time point is treated as immediately after irradiation (0 cooldown).
@@ -359,23 +359,30 @@ def extract_activation_table(filename, region_number=None):
     
     # Find all output time sections
     i = 0
+    in_target_region = region_number is None  # If no region specified, process all
     while i < len(lines):
         line = lines[i]
         time_label = "0.0 s"  # Default initialization
         
-        # Find region marker (if specified)
-        if region_number is not None and 'region number' in line and '.....' in line:
+        # Find region marker
+        if 'region number' in line and '.....' in line:
             match = re.search(r'region number\s+\.+\s+(\d+)', line)
-            if match and int(match.group(1)) == int(region_number):
-                found_region = int(match.group(1))
+            if match:
+                current_region = int(match.group(1))
+                if region_number is not None:
+                    if current_region == int(region_number):
+                        in_target_region = True
+                        found_region = current_region
+                    else:
+                        in_target_region = False
+                        if found_region is not None:
+                            # Already processed target region, stop
+                            break
                 i += 1
                 continue
-            elif found_region is not None and int(match.group(1)) != int(region_number):
-                # Found a different region, stop if we already found our target
-                break
         
-        # Find output time header
-        if '--- output time ---' in line:
+        # Process time sections only if in target region
+        if in_target_region and '--- output time ---' in line:
             # Extract output time value
             output_time_seconds = None
             parts = line.split()
@@ -438,17 +445,32 @@ def extract_activation_table(filename, region_number=None):
                     try:
                         parts = line.split()
                         if len(parts) >= 4:
-                            # Parse isotope name
+                            # Parse isotope name - handle "Element Mass" and "ElementMass" formats
+                            isotope_name = None
+                            activity_idx = 3  # Default position for activity
+
+                            # Format: separate element and mass columns
                             if parts[0].isalpha() and len(parts) >= 4:
                                 element = parts[0]
                                 mass = parts[1]
                                 isotope_name = f"{element}{mass}"
-                                
-                                # Activity is typically the 3rd numeric column
+                                activity_idx = 3
+                            # Format: combined element+mass (e.g. Sm155, Tl201)
+                            elif len(parts[0]) > 2 and parts[0][:2].isalpha() and parts[0][2:].isdigit():
+                                element = parts[0][:2]
+                                mass = parts[0][2:]
+                                isotope_name = f"{element}{mass}"
+                                activity_idx = 2
+                            elif len(parts[0]) > 1 and parts[0][0].isalpha() and parts[0][1:].isdigit():
+                                element = parts[0][0]
+                                mass = parts[0][1:]
+                                isotope_name = f"{element}{mass}"
+                                activity_idx = 2
+
+                            if isotope_name:
                                 try:
-                                    activity_val = float(parts[3])
+                                    activity_val = float(parts[activity_idx])
                                     # Extract half-life from the last column before dose-rate
-                                    # Half-life is typically in the column before the last one
                                     half_life_val = float(parts[-2]) if len(parts) >= 6 else 0.0
                                     isotopes_data.append({
                                         'isotope': isotope_name,
