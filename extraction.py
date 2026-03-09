@@ -293,8 +293,11 @@ def extract_activation_table(filename, region_number=None):
     
     Returns a table where:
     - Rows are isotopes
-    - Columns are time points
+    - Columns are cooldown time points (time after last shutdown)
     - Values are activity in Bq/cc
+    
+    Time points are extracted from "(after the last shutdown: XX [unit])" markers.
+    If no such marker is present, the time point is treated as immediately after irradiation (0 cooldown).
     
     Args:
         filename (str): Path to the .act file
@@ -302,7 +305,7 @@ def extract_activation_table(filename, region_number=None):
     
     Returns:
         dict: Dictionary containing:
-            - 'times': list of time strings (e.g., ['10 [d]', '11 [d]', ...])
+            - 'times': list of cooldown time strings (e.g., ['0.0 s', '10.0 m', '1.0 h', ...])
             - 'isotopes': list of unique isotope names
             - 'data': dict where key is isotope, value is dict of time->activity
             - 'region': region number
@@ -335,69 +338,65 @@ def extract_activation_table(filename, region_number=None):
         
         # Find output time header
         if '--- output time ---' in line:
-            # Parse time from this line
-            parts = line.split()
-            time_str = None
-            for j, part in enumerate(parts):
-                if part.replace('.', '').replace('E', '').replace('-', '').replace('+', '').isdigit():
-                    try:
-                        time_str = part
-                        if j + 1 < len(parts) and '[' in parts[j + 1]:
-                            time_str += ' ' + parts[j + 1]
+            # Parse cooldown time from "after the last shutdown" brackets
+            cooldown_str = "0.0 s"  # Default for immediately after irradiation
+            
+            # Look for "after the last shutdown" in this line
+            shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
+            if shutdown_match:
+                cooldown_val = float(shutdown_match.group(1))
+                cooldown_unit = shutdown_match.group(2)
+                cooldown_str = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
+            
+            # Find the isotope table for this time section
+            isotopes_data = []
+            isotopes_found = False
+            
+            # Skip to the table header
+            while i < len(lines) and not ('nuclide' in lines[i] and 'atoms' in lines[i] and 'radioactivity' in lines[i]):
+                i += 1
+            
+            if i < len(lines):
+                i += 1  # Skip header line
+                
+                # Parse isotope data lines
+                while i < len(lines):
+                    line = lines[i].strip()
+                    if not line or line.startswith('gamma-ray') or line.startswith('---') or line.startswith('total') or line.startswith('activated'):
                         break
+                    
+                    try:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            # Parse isotope name
+                            if parts[0].isalpha() and len(parts) >= 4:
+                                element = parts[0]
+                                mass = parts[1]
+                                isotope_name = f"{element}{mass}"
+                                
+                                # Activity is typically the 3rd numeric column
+                                try:
+                                    activity_val = float(parts[3])
+                                    # Extract half-life from the last column before dose-rate
+                                    # Half-life is typically in the column before the last one
+                                    half_life_val = float(parts[-2]) if len(parts) >= 6 else 0.0
+                                    isotopes_data.append({
+                                        'isotope': isotope_name,
+                                        'activity': activity_val,
+                                        'half_life': half_life_val
+                                    })
+                                except (ValueError, IndexError):
+                                    pass
                     except:
                         pass
-            
-            if time_str:
-                # Find the isotope table for this time section
-                isotopes_data = []
-                isotopes_found = False
-                
-                # Skip to the table header
-                while i < len(lines) and not ('nuclide' in lines[i] and 'atoms' in lines[i] and 'radioactivity' in lines[i]):
-                    i += 1
-                
-                if i < len(lines):
-                    i += 1  # Skip header line
                     
-                    # Parse isotope data lines
-                    while i < len(lines):
-                        line = lines[i].strip()
-                        if not line or line.startswith('gamma-ray') or line.startswith('---') or line.startswith('total') or line.startswith('activated'):
-                            break
-                        
-                        try:
-                            parts = line.split()
-                            if len(parts) >= 4:
-                                # Parse isotope name
-                                if parts[0].isalpha() and len(parts) >= 4:
-                                    element = parts[0]
-                                    mass = parts[1]
-                                    isotope_name = f"{element}{mass}"
-                                    
-                                    # Activity is typically the 3rd numeric column
-                                    try:
-                                        activity_val = float(parts[3])
-                                        # Extract half-life from the last column before dose-rate
-                                        # Half-life is typically in the column before the last one
-                                        half_life_val = float(parts[-2]) if len(parts) >= 6 else 0.0
-                                        isotopes_data.append({
-                                            'isotope': isotope_name,
-                                            'activity': activity_val,
-                                            'half_life': half_life_val
-                                        })
-                                    except (ValueError, IndexError):
-                                        pass
-                        except:
-                            pass
-                        
-                        i += 1
-                
-                if isotopes_data:
-                    time_sections.append({
-                        'time': time_str,
-                        'isotopes': isotopes_data
-                    })
+                    i += 1
+            
+            if isotopes_data:
+                time_sections.append({
+                    'time': cooldown_str,
+                    'isotopes': isotopes_data
+                })
         
         i += 1
     
