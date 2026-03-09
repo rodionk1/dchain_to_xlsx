@@ -428,20 +428,24 @@
             
             // Create header row with time columns
             const headerRow = document.createElement('tr');
-            headerRow.innerHTML = '<th style="width: 15%;">Isotope</th>';
+            headerRow.innerHTML = '<th style="width: 10%;">Isotope</th><th style="width: 10%;">Half-life</th><th style="width: 5%;">Unit</th>';
             
             data.times.forEach(time => {
-                headerRow.innerHTML += `<th style="width: ${80/data.times.length}%;">${time}</th>`;
+                const formattedTime = formatCooldownTime(time);
+                headerRow.innerHTML += `<th style="width: ${70/data.times.length}%;">${formattedTime}</th>`;
             });
             tableHead.appendChild(headerRow);
             
             // Create data rows
             data.isotopes.forEach(isotope => {
                 const row = document.createElement('tr');
-                row.innerHTML = `<td class="isotope-col">${isotope}</td>`;
+                const isotopeData = data.data[isotope];
+                row.innerHTML = `<td class="isotope-col">${isotope}</td>
+                                <td>${isotopeData.half_life}</td>
+                                <td>${isotopeData.half_life_unit}</td>`;
                 
                 data.times.forEach(time => {
-                    const activity = data.data[isotope][time] || 0;
+                    const activity = isotopeData[time] || 0;
                     const formattedActivity = activity > 0 ? activity.toExponential(4) : '0.0000E+00';
                     row.innerHTML += `<td>${formattedActivity}</td>`;
                 });
@@ -457,22 +461,52 @@
             document.getElementById('tableContainer').classList.add('show');
         }
 
+        // Format cooldown time for display
+        function formatCooldownTime(timeStr) {
+            // Parse the time string
+            const match = timeStr.match(/([0-9.E+-]+)\s*\[([a-zA-Z]+)\]/);
+            if (!match) return timeStr;
+            
+            const value = parseFloat(match[1]);
+            const unit = match[2];
+            
+            // Convert to appropriate units
+            if (unit === 's') {
+                if (value < 60) return `${value.toFixed(1)} s`;
+                if (value < 3600) return `${(value/60).toFixed(1)} m`;
+                if (value < 86400) return `${(value/3600).toFixed(1)} h`;
+                return `${(value/86400).toFixed(1)} d`;
+            } else if (unit === 'm') {
+                if (value < 60) return `${value.toFixed(1)} m`;
+                return `${(value/60).toFixed(1)} h`;
+            } else if (unit === 'h') {
+                if (value < 24) return `${value.toFixed(1)} h`;
+                return `${(value/24).toFixed(1)} d`;
+            } else if (unit === 'd') {
+                if (value < 365) return `${value.toFixed(1)} d`;
+                return `${(value/365).toFixed(1)} y`;
+            }
+            return timeStr;
+        }
+
         // Export to CSV
         document.getElementById('exportBtn').addEventListener('click', () => {
             if (!currentData) return;
 
             // Create CSV header
-            let csv = 'Isotope';
+            let csv = 'Isotope,Half-life,Unit';
             currentData.times.forEach(time => {
-                csv += `,${time}`;
+                const formattedTime = formatCooldownTime(time);
+                csv += `,${formattedTime}`;
             });
             csv += '\n';
 
             // Add data rows
             currentData.isotopes.forEach(isotope => {
-                csv += isotope;
+                const isotopeData = currentData.data[isotope];
+                csv += `${isotope},${isotopeData.half_life},${isotopeData.half_life_unit}`;
                 currentData.times.forEach(time => {
-                    const activity = currentData.data[isotope][time] || 0;
+                    const activity = isotopeData[time] || 0;
                     csv += `,${activity}`;
                 });
                 csv += '\n';

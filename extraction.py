@@ -1,8 +1,76 @@
-"""
-Module for extracting activation data from PHITS-DCHAIN .act files
-"""
-
 import re
+
+
+def format_half_life(half_life_seconds):
+    """
+    Format half-life in seconds to appropriate units.
+    
+    Args:
+        half_life_seconds (float): Half-life in seconds
+    
+    Returns:
+        tuple: (formatted_value, unit)
+    """
+    if half_life_seconds <= 0:
+        return "0.000", "s"
+    
+    if half_life_seconds < 60:
+        return f"{half_life_seconds:.3f}", "s"
+    elif half_life_seconds < 3600:  # < 1 hour
+        return f"{half_life_seconds/60:.3f}", "m"
+    elif half_life_seconds < 86400:  # < 1 day
+        return f"{half_life_seconds/3600:.3f}", "h"
+    elif half_life_seconds < 31536000:  # < 1 year
+        return f"{half_life_seconds/86400:.3f}", "d"
+    else:
+        return f"{half_life_seconds/31536000:.3f}", "y"
+
+
+def format_cooldown_time(time_str):
+    """
+    Format cooldown time string to appropriate units.
+    
+    Args:
+        time_str (str): Time string like "10 [d]" or "1.0007E+01 [d]"
+    
+    Returns:
+        str: Formatted cooldown time
+    """
+    # Parse the time string
+    match = re.match(r'([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', time_str)
+    if not match:
+        return time_str
+    
+    value = float(match.group(1))
+    unit = match.group(2)
+    
+    # Convert to appropriate units
+    if unit == 's':
+        if value < 60:
+            return f"{value:.1f} s"
+        elif value < 3600:
+            return f"{value/60:.1f} m"
+        elif value < 86400:
+            return f"{value/3600:.1f} h"
+        else:
+            return f"{value/86400:.1f} d"
+    elif unit == 'm':
+        if value < 60:
+            return f"{value:.1f} m"
+        else:
+            return f"{value/60:.1f} h"
+    elif unit == 'h':
+        if value < 24:
+            return f"{value:.1f} h"
+        else:
+            return f"{value/24:.1f} d"
+    elif unit == 'd':
+        if value < 365:
+            return f"{value:.1f} d"
+        else:
+            return f"{value/365:.1f} y"
+    else:
+        return time_str
 
 
 def extract_activation_data(filename, region_number=None, time_value=None, time_unit=None):
@@ -310,9 +378,13 @@ def extract_activation_table(filename, region_number=None):
                                     # Activity is typically the 3rd numeric column
                                     try:
                                         activity_val = float(parts[3])
+                                        # Extract half-life from the last column before dose-rate
+                                        # Half-life is typically in the column before the last one
+                                        half_life_val = float(parts[-2]) if len(parts) >= 6 else 0.0
                                         isotopes_data.append({
                                             'isotope': isotope_name,
-                                            'activity': activity_val
+                                            'activity': activity_val,
+                                            'half_life': half_life_val
                                         })
                                     except (ValueError, IndexError):
                                         pass
@@ -372,18 +444,24 @@ def extract_activation_table(filename, region_number=None):
     isotopes_list = sorted(list(all_isotopes), key=isotope_key)
     times_list = [section['time'] for section in time_sections]
     
-    # Create data dictionary: isotope -> {time: activity}
+    # Create data dictionary: isotope -> {time: activity, half_life: value, half_life_unit: unit}
     data_dict = {}
     for isotope in isotopes_list:
-        data_dict[isotope] = {}
+        data_dict[isotope] = {'half_life': 0.0, 'half_life_unit': 's'}
         for section in time_sections:
             # Find this isotope in this time section
             activity = 0.0
+            half_life = 0.0
             for iso_data in section['isotopes']:
                 if iso_data['isotope'] == isotope:
                     activity = iso_data['activity']
+                    half_life = iso_data.get('half_life', 0.0)
                     break
             data_dict[isotope][section['time']] = activity
+            if half_life > 0:
+                formatted_val, unit = format_half_life(half_life)
+                data_dict[isotope]['half_life'] = formatted_val
+                data_dict[isotope]['half_life_unit'] = unit
     
     return {
         'times': times_list,
