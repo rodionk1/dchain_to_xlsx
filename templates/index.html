@@ -308,7 +308,7 @@
                     <p id="tableMetadata"></p>
                 </div>
                 <table id="dataTable">
-                    <thead>
+                    <thead id="tableHead">
                         <tr>
                             <th style="width: 20%;">Isotope</th>
                             <th style="width: 40%;">Atoms (atoms/cc)</th>
@@ -420,20 +420,37 @@
         // Display table
         function displayTable(data) {
             const tableBody = document.getElementById('tableBody');
+            const tableHead = document.getElementById('tableHead');
+            
+            // Clear existing content
+            tableHead.innerHTML = '';
             tableBody.innerHTML = '';
-
-            data.data.forEach(row => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="isotope-col">${row.isotope}</td>
-                    <td>${row.atoms}</td>
-                    <td>${row.activity}</td>
-                `;
-                tableBody.appendChild(tr);
+            
+            // Create header row with time columns
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th style="width: 15%;">Isotope</th>';
+            
+            data.times.forEach(time => {
+                headerRow.innerHTML += `<th style="width: ${80/data.times.length}%;">${time}</th>`;
             });
-
+            tableHead.appendChild(headerRow);
+            
+            // Create data rows
+            data.isotopes.forEach(isotope => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td class="isotope-col">${isotope}</td>`;
+                
+                data.times.forEach(time => {
+                    const activity = data.data[isotope][time] || 0;
+                    const formattedActivity = activity > 0 ? activity.toExponential(4) : '0.0000E+00';
+                    row.innerHTML += `<td>${formattedActivity}</td>`;
+                });
+                
+                tableBody.appendChild(row);
+            });
+            
             // Update metadata
-            const metadata = `Region: ${data.region} | Time: ${data.time} ${data.time_unit || ''} | Total Isotopes: ${data.data.length}`;
+            const metadata = `Region: ${data.region} | Time Points: ${data.times.length} | Isotopes: ${data.isotopes.length}`;
             document.getElementById('tableMetadata').textContent = metadata;
 
             // Show table
@@ -444,16 +461,28 @@
         document.getElementById('exportBtn').addEventListener('click', () => {
             if (!currentData) return;
 
-            let csv = 'Isotope,Atoms (atoms/cc),Activity (Bq/cc)\n';
-            currentData.data.forEach(row => {
-                csv += `${row.isotope},${row.atoms},${row.activity}\n`;
+            // Create CSV header
+            let csv = 'Isotope';
+            currentData.times.forEach(time => {
+                csv += `,${time}`;
+            });
+            csv += '\n';
+
+            // Add data rows
+            currentData.isotopes.forEach(isotope => {
+                csv += isotope;
+                currentData.times.forEach(time => {
+                    const activity = currentData.data[isotope][time] || 0;
+                    csv += `,${activity}`;
+                });
+                csv += '\n';
             });
 
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `activation_data_region${currentData.region}.csv`;
+            a.download = `activation_table_region${currentData.region}.csv`;
             a.click();
             URL.revokeObjectURL(url);
         });

@@ -4,7 +4,7 @@ Flask web application for viewing activation data tables
 
 from flask import Flask, render_template, request, jsonify
 import os
-from extraction import extract_activation_data, extract_all_regions
+from extraction import extract_activation_data, extract_all_regions, extract_activation_table
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -60,22 +60,15 @@ def extract_data():
         return jsonify({'error': 'Missing filepath or region'}), 400
     
     try:
-        result = extract_activation_data(filepath, region_number=region)
+        result = extract_activation_table(filepath, region_number=region)
         
-        # Format the response
+        # Format the response for the table display
         table_data = {
             'region': result['region'],
-            'time': result['time'],
-            'time_unit': result['time_unit'],
-            'data': []
+            'times': result['times'],
+            'isotopes': result['isotopes'],
+            'data': result['data']
         }
-        
-        for i, iso in enumerate(result['isotopes']):
-            table_data['data'].append({
-                'isotope': iso,
-                'atoms': f"{result['atoms'][i]:.4E}" if result['atoms'][i] else "0",
-                'activity': f"{result['activities'][i]:.4E}" if result['activities'][i] else "0"
-            })
         
         return jsonify(table_data)
     except Exception as e:

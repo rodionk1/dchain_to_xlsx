@@ -6,8 +6,8 @@ A web application for extracting and visualizing activation tables from PHITS-DC
 
 - **File Upload**: Upload .act files directly from the browser
 - **Region Selection**: Choose specific regions from the data file
-- **Activation Table**: View isotope data with atoms/cc and activity in Bq/cc
-- **CSV Export**: Export the extracted data as a CSV file
+- **Activation Table**: View isotope data across multiple time points (columns = time points, rows = isotopes)
+- **CSV Export**: Export the complete activation table as a CSV file
 - **Modern UI**: Clean, responsive web interface
 
 ## Project Structure
@@ -66,7 +66,7 @@ Upload a .act file and get available regions.
 ```
 
 ### POST /api/extract
-Extract activation data for a specific region.
+Extract activation data for a specific region across all time points.
 
 **Request:**
 ```json
@@ -80,28 +80,43 @@ Extract activation data for a specific region.
 ```json
 {
   "region": 11,
-  "time": "10",
-  "time_unit": "[d]",
-  "data": [
-    {"isotope": "H3", "atoms": "3.2214E+16", "activity": "5.7431E+07"},
-    ...
-  ]
+  "times": ["10 [d]", "11 [d]", "12 [d]", "20 [d]"],
+  "isotopes": ["H3", "Be7", "C11", ...],
+  "data": {
+    "H3": {
+      "10 [d]": 57431000.0,
+      "11 [d]": 57422000.0,
+      "12 [d]": 57414000.0,
+      "20 [d]": 57343000.0
+    },
+    "Be7": {
+      "10 [d]": 13648000000.0,
+      ...
+    }
+  }
 }
 ```
 
 ## Extraction Module
 
-The `extraction.py` module provides two main functions:
+The `extraction.py` module provides functions for extracting activation data from PHITS .act files:
 
-### extract_activation_data(filename, region_number=None, time_value=None, time_unit=None)
-Extracts activation data for a specific region and time from a .act file.
+### extract_activation_table(filename, region_number=None)
+Extracts activation data for all time points in a .act file and returns a table format.
+
+**Returns:** Dictionary with:
+- `times`: List of time strings (e.g., ['10 [d]', '11 [d]', ...])
+- `isotopes`: List of unique isotope names
+- `data`: Dictionary where key is isotope, value is dict of time->activity
+- `region`: Region number
 
 ```python
-from extraction import extract_activation_data
+from extraction import extract_activation_table
 
-data = extract_activation_data('data/C_activation_80-35-10d.act', region_number=11)
-print(data['isotopes'])    # List of isotope names
-print(data['activities'])  # List of activity values
+data = extract_activation_table('data/C_activation_80-35-10d.act', region_number=11)
+print("Time points:", data['times'])
+print("Isotopes:", data['isotopes'])
+print("H3 activity at 10 [d]:", data['data']['H3']['10 [d]'])
 ```
 
 ### extract_all_regions(filename)

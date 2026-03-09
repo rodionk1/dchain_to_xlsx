@@ -214,3 +214,152 @@ def extract_all_regions(filename):
                 })
     
     return regions
+
+
+def extract_activation_table(filename, region_number=None):
+    """
+    Extract activation data for all time points in a .act file.
+    
+    Returns a table where:
+    - Rows are isotopes
+    - Columns are time points
+    - Values are activity in Bq/cc
+    
+    Args:
+        filename (str): Path to the .act file
+        region_number (int or str, optional): Region number to extract
+    
+    Returns:
+        dict: Dictionary containing:
+            - 'times': list of time strings (e.g., ['10 [d]', '11 [d]', ...])
+            - 'isotopes': list of unique isotope names
+            - 'data': dict where key is isotope, value is dict of time->activity
+            - 'region': region number
+    """
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except IOError as e:
+        raise IOError(f"Cannot open file {filename}: {e}")
+    
+    lines = content.split('\n')
+    time_sections = []
+    found_region = None
+    
+    # Find all output time sections
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # Find region marker (if specified)
+        if region_number is not None and 'region number' in line and '.....' in line:
+            match = re.search(r'region number\s+\.+\s+(\d+)', line)
+            if match and int(match.group(1)) == int(region_number):
+                found_region = int(match.group(1))
+                i += 1
+                continue
+            elif found_region is not None and int(match.group(1)) != int(region_number):
+                # Found a different region, stop if we already found our target
+                break
+        
+        # Find output time header
+        if '--- output time ---' in line:
+            # Parse time from this line
+            parts = line.split()
+            time_str = None
+            for j, part in enumerate(parts):
+                if part.replace('.', '').replace('E', '').replace('-', '').replace('+', '').isdigit():
+                    try:
+                        time_str = part
+                        if j + 1 < len(parts) and '[' in parts[j + 1]:
+                            time_str += ' ' + parts[j + 1]
+                        break
+                    except:
+                        pass
+            
+            if time_str:
+                # Find the isotope table for this time section
+                isotopes_data = []
+                isotopes_found = False
+                
+                # Skip to the table header
+                while i < len(lines) and not ('nuclide' in lines[i] and 'atoms' in lines[i] and 'radioactivity' in lines[i]):
+                    i += 1
+                
+                if i < len(lines):
+                    i += 1  # Skip header line
+                    
+                    # Parse isotope data lines
+                    while i < len(lines):
+                        line = lines[i].strip()
+                        if not line or line.startswith('gamma-ray') or line.startswith('---') or line.startswith('total') or line.startswith('activated'):
+                            break
+                        
+                        try:
+                            parts = line.split()
+                            if len(parts) >= 4:
+                                # Parse isotope name
+                                if parts[0].isalpha() and len(parts) >= 4:
+                                    element = parts[0]
+                                    mass = parts[1]
+                                    isotope_name = f"{element}{mass}"
+                                    
+                                    # Activity is typically the 3rd numeric column
+                                    try:
+                                        activity_val = float(parts[3])
+                                        isotopes_data.append({
+                                            'isotope': isotope_name,
+                                            'activity': activity_val
+                                        })
+                                    except (ValueError, IndexError):
+                                        pass
+                        except:
+                            pass
+                        
+                        i += 1
+                
+                if isotopes_data:
+                    time_sections.append({
+                        'time': time_str,
+                        'isotopes': isotopes_data
+                    })
+        
+        i += 1
+    
+    if not time_sections:
+        return {
+            'times': [],
+            'isotopes': [],
+            'data': {},
+            'region': found_region or region_number
+        }
+    
+    # Create the table structure
+    # Collect all unique isotopes
+    all_isotopes = set()
+    for section in time_sections:
+        for iso_data in section['isotopes']:
+            all_isotopes.add(iso_data['isotope'])
+    
+    isotopes_list = sorted(list(all_isotopes))
+    times_list = [section['time'] for section in time_sections]
+    
+    # Create data dictionary: isotope -> {time: activity}
+    data_dict = {}
+    for isotope in isotopes_list:
+        data_dict[isotope] = {}
+        for section in time_sections:
+            # Find this isotope in this time section
+            activity = 0.0
+            for iso_data in section['isotopes']:
+                if iso_data['isotope'] == isotope:
+                    activity = iso_data['activity']
+                    break
+            data_dict[isotope][section['time']] = activity
+    
+    return {
+        'times': times_list,
+        'isotopes': isotopes_list,
+        'data': data_dict,
+        'region': found_region or region_number
+    }
