@@ -185,8 +185,9 @@ def extract_all_regions(filename):
     lines = content.split('\n')
     
     for i, line in enumerate(lines):
-        if 'region number' in line and 'no.' in line:
-            match = re.search(r'region number\s+(\d+)', line)
+        if 'region number' in line and '.....' in line:
+            # Extract region number from line like: "region number .....          11  (in nmtc yield file)"
+            match = re.search(r'region number\s+\.+\s+(\d+)', line)
             if match:
                 region_num = int(match.group(1))
                 
