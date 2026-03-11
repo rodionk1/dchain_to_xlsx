@@ -308,13 +308,8 @@
                 <div class="export-options">
                     <label for="sheetNameInput">Sheet Name:</label>
                     <input type="text" id="sheetNameInput" placeholder="Enter sheet name" value="All Regions" />
-
                     <label for="existingFileInput">Add to existing Excel:</label>
                     <input type="file" id="existingFileInput" accept=".xlsx,.xls" />
-
-                    <button id="chooseSaveBtn" class="export-btn">📁 Choose save location</button>
-                    <span id="savePathDisplay" style="font-size:0.9em;color:#555;margin-left:5px;"></span>
-
                     <button class="export-btn" id="exportBtn">📥 Export as XLSX</button>
                 </div>
             </div>
@@ -364,7 +359,6 @@
         let currentFilePath = null;
         let currentRegions = null;
         let currentData = null;
-        let saveHandle = null;  // FileHandle from File System Access API
 
         // File upload handler
         document.getElementById('fileInput').addEventListener('change', async (e) => {
@@ -454,30 +448,6 @@
                 showLoading(false);
             }
         });
-
-        // Save location chooser (File System Access API)
-        const chooseSaveBtn = document.getElementById('chooseSaveBtn');
-        if (chooseSaveBtn) {
-            chooseSaveBtn.addEventListener('click', async () => {
-                if (window.showSaveFilePicker) {
-                    try {
-                        saveHandle = await window.showSaveFilePicker({
-                            types: [
-                                {
-                                    description: 'Excel Files',
-                                    accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
-                                }
-                            ]
-                        });
-                        document.getElementById('savePathDisplay').textContent = saveHandle.name;
-                    } catch (err) {
-                        console.warn('Save dialog cancelled', err);
-                    }
-                } else {
-                    alert('Save location selection is not supported by your browser.');
-                }
-            });
-        }
 
         // Display table
         function displayTable(data) {
@@ -572,6 +542,16 @@
             showLoading(true);
             showStatus('', '');
 
+            // choose folder for saving
+            let saveFolder = null;
+            if (window.showDirectoryPicker) {
+                try {
+                    saveFolder = await window.showDirectoryPicker();
+                } catch (err) {
+                    console.warn('Folder selection cancelled', err);
+                }
+            }
+
             try {
                 // Load existing workbook or create new one
                 let wb;
@@ -645,15 +625,22 @@
                 const ws = XLSX.utils.aoa_to_sheet(allData);
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-                // Generate and save XLSX file
-                if (saveHandle) {
-                    // Write to the handle chosen by user
-                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                    const writable = await saveHandle.createWritable();
-                    await writable.write(wbout);
-                    await writable.close();
+                // Determine output filename
+                const filename = existingFile ? existingFile.name : `activation_table_${sheetName.replace(/\s+/g,'_')}.xlsx`;
+
+                if (saveFolder) {
+                    try {
+                        const fileHandle = await saveFolder.getFileHandle(filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                        await writable.write(data);
+                        await writable.close();
+                    } catch (err) {
+                        console.error('Error writing to selected folder', err);
+                        // fallback to download
+                        XLSX.writeFile(wb, filename);
+                    }
                 } else {
-                    const filename = existingFile ? existingFile.name : `activation_table_all_regions.xlsx`;
                     XLSX.writeFile(wb, filename);
                 }
 
