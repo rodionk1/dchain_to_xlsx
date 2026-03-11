@@ -476,7 +476,7 @@
             const value = parseFloat(match[1]);
             const unit = match[2];
             
-            // If cooldown time is zero, return "irradiation time"
+            // If cooldown time is zero, return "irradiation"
             if (Math.abs(value) < 1e-10) {
                 return 'irradiation';
             }

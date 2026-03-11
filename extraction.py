@@ -518,7 +518,7 @@ def extract_activation_table(filename, region_number=None, nuclide_list=None):
                 if output_time_seconds <= irradiation_time_seconds:
                     # During irradiation
                     formatted_time = format_cooldown_time(f"{output_time_seconds} [s]")
-                    time_label = f"irradiation time: {formatted_time}"
+                    time_label = f"irradiation: {formatted_time}"
                 else:
                     # After irradiation - check for shutdown marker
                     shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
@@ -526,10 +526,10 @@ def extract_activation_table(filename, region_number=None, nuclide_list=None):
                         cooldown_val = float(shutdown_match.group(1))
                         cooldown_unit = shutdown_match.group(2)
                         formatted_cooldown = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
-                        time_label = f"cooldown time: {formatted_cooldown}"
+                        time_label = f"cooldown: {formatted_cooldown}"
                     else:
                         # Immediately after irradiation
-                        time_label = "cooldown time: 0.0 s"
+                        time_label = "cooldown: 0.0 s"
             else:
                 # Fallback: look for shutdown marker anyway
                 shutdown_match = re.search(r'\(after the last shutdown:\s*([0-9.E+-]+)\s*\[([a-zA-Z]+)\]', line)
@@ -537,7 +537,7 @@ def extract_activation_table(filename, region_number=None, nuclide_list=None):
                     cooldown_val = float(shutdown_match.group(1))
                     cooldown_unit = shutdown_match.group(2)
                     formatted_cooldown = format_cooldown_time(f"{cooldown_val} [{cooldown_unit}]")
-                    time_label = f"cooldown time: {formatted_cooldown}"
+                    time_label = f"cooldown: {formatted_cooldown}"
             
             # Find the isotope table for this time section
             isotopes_data = []
