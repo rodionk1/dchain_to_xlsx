@@ -313,14 +313,127 @@ def extract_all_regions(filename):
     return regions
 
 
-def extract_activation_table(filename, region_number=None):
+def get_nuclides_for_region(filename, region_number):
+    """
+    Get a list of all unique nuclides present in a given region across all time points.
+    
+    Args:
+        filename (str): Path to the .act file
+        region_number (int or str): Region number to extract nuclides from
+    
+    Returns:
+        list: List of unique nuclide names (e.g., ['H3', 'C11', 'N13', ...])
+    """
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except IOError as e:
+        raise IOError(f"Cannot open file {filename}: {e}")
+    
+    lines = content.split('\n')
+    nuclides = set()
+    in_target_region = False
+    
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
+        # Find region marker
+        if 'region number' in line and '.....' in line:
+            match = re.search(r'region number\s+\.+\s+(\d+)', line)
+            if match:
+                current_region = int(match.group(1))
+                if current_region == int(region_number):
+                    in_target_region = True
+                else:
+                    in_target_region = False
+                    if nuclides:  # Already collected for target region
+                        break
+            i += 1
+            continue
+        
+        # Collect nuclides only if in target region
+        if in_target_region and '--- output time ---' in line:
+            # Skip to the isotope table header
+            while i < len(lines) and not ('nuclide' in lines[i] and 'atoms' in lines[i] and 'radioactivity' in lines[i]):
+                i += 1
+            
+            if i < len(lines):
+                i += 1  # Skip header line
+                
+                # Parse isotope data lines
+                while i < len(lines):
+                    line = lines[i].strip()
+                    if not line or line.startswith('gamma-ray') or line.startswith('---') or line.startswith('total') or line.startswith('activated'):
+                        break
+                    
+                    try:
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            # Parse isotope name - handle different formats
+                            isotope_name = None
+                            
+                            # Format: separate element and mass columns
+                            if parts[0].isalpha() and len(parts) >= 4:
+                                element = parts[0]
+                                mass = parts[1]
+                                isotope_name = f"{element}{mass}"
+                            # Format: combined element+mass (e.g. Sm155, Tl201)
+                            elif len(parts[0]) > 2 and parts[0][:2].isalpha() and parts[0][2:].isdigit():
+                                element = parts[0][:2]
+                                mass = parts[0][2:]
+                                isotope_name = f"{element}{mass}"
+                            elif len(parts[0]) > 1 and parts[0][0].isalpha() and parts[0][1:].isdigit():
+                                element = parts[0][0]
+                                mass = parts[0][1:]
+                                isotope_name = f"{element}{mass}"
+                            
+                            if isotope_name:
+                                nuclides.add(isotope_name)
+                    except:
+                        pass
+                    
+                    i += 1
+        
+        i += 1
+    
+    # Sort nuclides by periodic order and mass number
+    periodic_order = {
+        'H':1,'He':2,'Li':3,'Be':4,'B':5,'C':6,'N':7,'O':8,'F':9,'Ne':10,
+        'Na':11,'Mg':12,'Al':13,'Si':14,'P':15,'S':16,'Cl':17,'Ar':18,'K':19,'Ca':20,
+        'Sc':21,'Ti':22,'V':23,'Cr':24,'Mn':25,'Fe':26,'Co':27,'Ni':28,'Cu':29,'Zn':30,
+        'Ga':31,'Ge':32,'As':33,'Se':34,'Br':35,'Kr':36,'Rb':37,'Sr':38,'Y':39,'Zr':40,
+        'Nb':41,'Mo':42,'Tc':43,'Ru':44,'Rh':45,'Pd':46,'Ag':47,'Cd':48,'In':49,'Sn':50,
+        'Sb':51,'Te':52,'I':53,'Xe':54,'Cs':55,'Ba':56,'La':57,'Ce':58,'Pr':59,'Nd':60,
+        'Pm':61,'Sm':62,'Eu':63,'Gd':64,'Tb':65,'Dy':66,'Ho':67,'Er':68,'Tm':69,'Yb':70,
+        'Lu':71,'Hf':72,'Ta':73,'W':74,'Re':75,'Os':76,'Ir':77,'Pt':78,'Au':79,'Hg':80,
+        'Tl':81,'Pb':82,'Bi':83,'Po':84,'At':85,'Rn':86,'Fr':87,'Ra':88,'Ac':89,'Th':90,
+        'Pa':91,'U':92,'Np':93,'Pu':94,'Am':95,'Cm':96,'Bk':97,'Cf':98,'Es':99,'Fm':100,
+    }
+    
+    def isotope_key(iso):
+        m = re.match(r'([A-Za-z]+)(\d+)', iso)
+        if not m:
+            return (999, 999)
+        elem = m.group(1)
+        mass = int(m.group(2))
+        atomnum = periodic_order.get(elem, 999)
+        return (atomnum, mass)
+    
+    return sorted(list(nuclides), key=isotope_key)
+
+
+def extract_activation_table(filename, region_number=None, nuclide_list=None):
     """
     Extract activation data for all time points in a .act file.
+    
+    If nuclide_list is provided, only extracts data for those nuclides.
+    Otherwise, extracts data for all nuclides found in the region.
     
     Returns a table where:
     - Rows are isotopes
     - Columns are cooldown time points (time after last shutdown)
-    - Values are activity in Bq
+    - Values are total activity in Bq
     
     Time points are extracted from "(after the last shutdown: XX [unit])" markers.
     If no such marker is present, the time point is treated as immediately after irradiation (0 cooldown).
@@ -328,11 +441,12 @@ def extract_activation_table(filename, region_number=None):
     Args:
         filename (str): Path to the .act file
         region_number (int or str, optional): Region number to extract
+        nuclide_list (list, optional): List of nuclides to extract. If None, extracts all.
     
     Returns:
         dict: Dictionary containing:
             - 'times': list of cooldown time strings (e.g., ['0.0 s', '10.0 m', '1.0 h', ...])
-            - 'isotopes': list of unique isotope names
+            - 'isotopes': list of isotope names (filtered by nuclide_list if provided)
             - 'data': dict where key is isotope, value is dict of time->activity
             - 'region': region number
     """
@@ -401,7 +515,7 @@ def extract_activation_table(filename, region_number=None):
             time_label = "0.0 s"  # Default
             
             if output_time_seconds is not None and irradiation_time_seconds is not None:
-                if output_time_seconds < irradiation_time_seconds:
+                if output_time_seconds <= irradiation_time_seconds:
                     # During irradiation
                     formatted_time = format_cooldown_time(f"{output_time_seconds} [s]")
                     time_label = f"irradiation time: {formatted_time}"
@@ -447,25 +561,25 @@ def extract_activation_table(filename, region_number=None):
                         if len(parts) >= 4:
                             # Parse isotope name - handle "Element Mass" and "ElementMass" formats
                             isotope_name = None
-                            activity_idx = 3  # Default position for activity
+                            activity_idx = 4  # Default position for total activity [Bq]
 
                             # Format: separate element and mass columns
                             if parts[0].isalpha() and len(parts) >= 4:
                                 element = parts[0]
                                 mass = parts[1]
                                 isotope_name = f"{element}{mass}"
-                                activity_idx = 3
+                                activity_idx = 4  # Total activity [Bq] column
                             # Format: combined element+mass (e.g. Sm155, Tl201)
                             elif len(parts[0]) > 2 and parts[0][:2].isalpha() and parts[0][2:].isdigit():
                                 element = parts[0][:2]
                                 mass = parts[0][2:]
                                 isotope_name = f"{element}{mass}"
-                                activity_idx = 2
+                                activity_idx = 3  # Total activity [Bq] column
                             elif len(parts[0]) > 1 and parts[0][0].isalpha() and parts[0][1:].isdigit():
                                 element = parts[0][0]
                                 mass = parts[0][1:]
                                 isotope_name = f"{element}{mass}"
-                                activity_idx = 2
+                                activity_idx = 3  # Total activity [Bq] column
 
                             if isotope_name:
                                 try:
@@ -501,11 +615,14 @@ def extract_activation_table(filename, region_number=None):
         }
     
     # Create the table structure
-    # Collect all unique isotopes
-    all_isotopes = set()
-    for section in time_sections:
-        for iso_data in section['isotopes']:
-            all_isotopes.add(iso_data['isotope'])
+    # Collect all unique isotopes or use provided list
+    if nuclide_list is not None:
+        all_isotopes = set(nuclide_list)
+    else:
+        all_isotopes = set()
+        for section in time_sections:
+            for iso_data in section['isotopes']:
+                all_isotopes.add(iso_data['isotope'])
     
     # periodic order mapping (symbol -> atomic number)
     periodic_order = {

@@ -4,7 +4,7 @@ Flask web application for viewing activation data tables
 
 from flask import Flask, render_template, request, jsonify
 import os
-from extraction import extract_activation_data, extract_all_regions, extract_activation_table
+from extraction import extract_activation_data, extract_all_regions, extract_activation_table, get_nuclides_for_region
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
@@ -60,7 +60,11 @@ def extract_data():
         return jsonify({'error': 'Missing filepath or region'}), 400
     
     try:
-        result = extract_activation_table(filepath, region_number=region)
+        # First, get the list of nuclides for the given region
+        nuclides = get_nuclides_for_region(filepath, region)
+        
+        # Then, extract activities for those nuclides
+        result = extract_activation_table(filepath, region_number=region, nuclide_list=nuclides)
         
         # Format the response for the table display
         table_data = {
