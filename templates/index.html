@@ -542,13 +542,22 @@
             showLoading(true);
             showStatus('', '');
 
-            // choose folder for saving
-            let saveFolder = null;
-            if (window.showDirectoryPicker) {
+            // choose file for saving (prompt save dialog)
+            let saveHandle = null;
+            if (window.showSaveFilePicker) {
                 try {
-                    saveFolder = await window.showDirectoryPicker();
+                    const defaultName = existingFile ? existingFile.name : `activation_table_${sheetName.replace(/\s+/g,'_')}.xlsx`;
+                    saveHandle = await window.showSaveFilePicker({
+                        suggestedName: defaultName,
+                        types: [
+                            {
+                                description: 'Excel Files',
+                                accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
+                            }
+                        ]
+                    });
                 } catch (err) {
-                    console.warn('Folder selection cancelled', err);
+                    console.warn('Save dialog cancelled', err);
                 }
             }
 
@@ -558,6 +567,8 @@
                 if (existingFile) {
                     const arrayBuffer = await existingFile.arrayBuffer();
                     wb = XLSX.read(arrayBuffer, { type: 'array' });
+                    // Clear the file input to release file lock
+                    existingFileInput.value = '';
                 } else {
                     wb = XLSX.utils.book_new();
                 }
@@ -625,22 +636,21 @@
                 const ws = XLSX.utils.aoa_to_sheet(allData);
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-                // Determine output filename
-                const filename = existingFile ? existingFile.name : `activation_table_${sheetName.replace(/\s+/g,'_')}.xlsx`;
-
-                if (saveFolder) {
+                // Save the file
+                if (saveHandle) {
                     try {
-                        const fileHandle = await saveFolder.getFileHandle(filename, { create: true });
-                        const writable = await fileHandle.createWritable();
+                        const writable = await saveHandle.createWritable();
                         const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                         await writable.write(data);
                         await writable.close();
                     } catch (err) {
-                        console.error('Error writing to selected folder', err);
+                        console.error('Error writing to file', err);
                         // fallback to download
+                        const filename = `activation_table_${sheetName.replace(/\s+/g,'_')}.xlsx`;
                         XLSX.writeFile(wb, filename);
                     }
                 } else {
+                    const filename = `activation_table_${sheetName.replace(/\s+/g,'_')}.xlsx`;
                     XLSX.writeFile(wb, filename);
                 }
 
