@@ -552,37 +552,39 @@
             const ws1 = XLSX.utils.aoa_to_sheet(allData);
             XLSX.utils.book_append_sheet(wb, ws1, 'All Data');
 
-            // Sheet 2: Top 15 isotopes
-            const topIsotopes = getTopIsotopes();
-            const topData = [];
+            // Sheet 2: Top 15 isotopes (only if more than 25 nuclides)
+            if (currentData.isotopes.length > 25) {
+                const topIsotopes = getTopIsotopes();
+                const topData = [];
 
-            // Add header with overhead
-            topData.push(['Top 15 Nuclides by Activity - Activity values in Bq']);
-            topData.push(['']); // Empty row
-            topData.push(['Region', currentData.region]);
-            topData.push(['']); // Empty row
+                // Add header with overhead
+                topData.push(['Top 15 Nuclides by Activity - Activity values in Bq']);
+                topData.push(['']); // Empty row
+                topData.push(['Region', currentData.region]);
+                topData.push(['']); // Empty row
 
-            // Create header row
-            const topHeaderRow = ['Nuclide', 'Half-life', 'Unit'];
-            currentData.times.forEach(time => {
-                const formattedTime = formatCooldownTime(time);
-                topHeaderRow.push(formattedTime);
-            });
-            topData.push(topHeaderRow);
-
-            // Add data rows for top 15 isotopes
-            topIsotopes.forEach(isotope => {
-                const isotopeData = currentData.data[isotope];
-                const row = [isotope, isotopeData.half_life, isotopeData.half_life_unit];
+                // Create header row
+                const topHeaderRow = ['Nuclide', 'Half-life', 'Unit'];
                 currentData.times.forEach(time => {
-                    const activity = isotopeData[time] || 0;
-                    row.push(activity);
+                    const formattedTime = formatCooldownTime(time);
+                    topHeaderRow.push(formattedTime);
                 });
-                topData.push(row);
-            });
+                topData.push(topHeaderRow);
 
-            const ws2 = XLSX.utils.aoa_to_sheet(topData);
-            XLSX.utils.book_append_sheet(wb, ws2, 'Top 15 Nuclides');
+                // Add data rows for top 15 isotopes
+                topIsotopes.forEach(isotope => {
+                    const isotopeData = currentData.data[isotope];
+                    const row = [isotope, isotopeData.half_life, isotopeData.half_life_unit];
+                    currentData.times.forEach(time => {
+                        const activity = isotopeData[time] || 0;
+                        row.push(activity);
+                    });
+                    topData.push(row);
+                });
+
+                const ws2 = XLSX.utils.aoa_to_sheet(topData);
+                XLSX.utils.book_append_sheet(wb, ws2, 'Top 15 Nuclides');
+            }
 
             // Generate and download XLSX file
             XLSX.writeFile(wb, `activation_table_region${currentData.region}.xlsx`);
