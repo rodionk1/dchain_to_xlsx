@@ -360,7 +360,7 @@
                     result.regions.forEach(region => {
                         const option = document.createElement('option');
                         option.value = region.region;
-                        option.textContent = `Region ${region.region} - Time: ${region.time} ${region.time_unit || ''}`;
+                        option.textContent = `Region ${region.region}`;
                         regionSelect.appendChild(option);
                     });
 
@@ -532,7 +532,7 @@
 
                     if (result.data) {
                         // Add region header
-                        allData.push([`Region ${region} - Time: ${regionInfo.time} ${regionInfo.time_unit || ''}`]);
+                        allData.push([`Region ${region} `]);
                         allData.push(['']); // Empty row
 
                         // Create header rows - handle irradiation/cooldown labels
