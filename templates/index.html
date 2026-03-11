@@ -616,7 +616,7 @@
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
                 // Generate and download XLSX file
-                const filename = existingFile ? `updated_${existingFile.name}` : `activation_table_all_regions.xlsx`;
+                const filename = existingFile ? existingFile.name : `activation_table_all_regions.xlsx`;
                 XLSX.writeFile(wb, filename);
 
                 showStatus('Data exported successfully!', 'success');
