@@ -1,0 +1,537 @@
+Al 25
+Al 26
+Al 28
+Al 29
+Al 30
+Al 31
+Al 32
+Ar 35
+Ar 37
+Ar 39
+Ar 41
+Ar 42
+Ar 43
+Ar 44
+Ar 45
+As 70
+As 71
+As 72
+As 73
+As 74
+As 76
+As 77
+As 78
+As 79
+As 80
+As 81
+As 82
+Au190
+Au192
+Au193
+Au194
+Au195
+Au196
+Au197
+Au198
+Au199
+Au201
+Au203
+Au204
+Au205
+B   9
+B  12
+B  13
+Be  8
+Be 10
+Be 11
+Bi202
+Bi204
+Bi205
+Bi206
+Bi207
+Bi208
+Bi209
+Bi210
+Bi211
+Br 75
+Br 76
+Br 77
+Br 78
+Br 79
+Br 80
+Br 82
+Br 83
+Br 84
+Br 85
+C  14
+C  15
+Ca 39
+Ca 41
+Ca 45
+Ca 47
+Ca 48
+Ca 49
+Cl 33
+Cl 34
+Cl 36
+Cl 38
+Cl 39
+Cl 40
+Cl 41
+Cl 42
+Co 54
+Co 55
+Co 56
+Co 57
+Co 58
+Co 60
+Co 61
+Co 62
+Co 63
+Co 64
+Co 65
+Co 66
+Cr 47
+Cr 48
+Cr 49
+Cr 50
+Cr 51
+Cr 55
+Cr 56
+Cr 57
+Cr 58
+Cr 59
+Cu 60
+Cu 61
+Cu 62
+Cu 64
+Cu 66
+Cu 67
+Cu 68
+Cu 69
+Cu 70
+Cu 71
+Cu 72
+Cu 73
+Dy157
+Dy159
+Dy165
+Dy166
+Dy167
+Dy168
+Dy169
+Dy170
+Dy171
+Er158
+Er159
+Er160
+Er161
+Er163
+Er165
+Er167
+Er169
+Er171
+Er172
+Er173
+Er174
+Er175
+Eu158
+Eu159
+Eu160
+Eu161
+F  17
+F  18
+F  20
+F  21
+F  22
+F  23
+Fe 51
+Fe 52
+Fe 53
+Fe 55
+Fe 59
+Fe 60
+Fe 61
+Fe 62
+Fe 63
+Fe 64
+Ga 65
+Ga 66
+Ga 67
+Ga 68
+Ga 70
+Ga 72
+Ga 73
+Ga 74
+Ga 75
+Ga 76
+Ga 77
+Gd159
+Gd161
+Gd162
+Gd163
+Ge 67
+Ge 68
+Ge 69
+Ge 71
+Ge 73
+Ge 75
+Ge 77
+Ge 78
+Ge 79
+Ge 80
+H   3
+He  5
+He  6
+He  7
+Hf168
+Hf169
+Hf170
+Hf171
+Hf172
+Hf173
+Hf175
+Hf177
+Hf178
+Hf179
+Hf180
+Hf181
+Hf182
+Hf183
+Hf184
+Hf185
+Hf186
+Hf187
+Hg192
+Hg193
+Hg194
+Hg195
+Hg197
+Hg199
+Hg203
+Hg205
+Hg206
+Hg207
+Hg208
+Hg209
+Ho158
+Ho159
+Ho160
+Ho161
+Ho162
+Ho163
+Ho164
+Ho166
+Ho167
+Ho168
+Ho169
+Ho170
+Ho171
+Ho172
+Ir183
+Ir184
+Ir185
+Ir186
+Ir187
+Ir188
+Ir189
+Ir190
+Ir191
+Ir192
+Ir193
+Ir194
+Ir195
+Ir196
+Ir197
+Ir198
+Ir199
+Ir200
+Ir201
+Ir202
+K  38
+K  40
+K  42
+K  43
+K  44
+K  45
+K  46
+K  47
+K  48
+Kr 77
+Kr 79
+Kr 81
+Kr 83
+Kr 85
+Kr 87
+Li  5
+Li  8
+Li  9
+Lu168
+Lu169
+Lu170
+Lu171
+Lu172
+Lu173
+Lu174
+Lu176
+Lu177
+Lu178
+Lu179
+Lu180
+Lu181
+Lu182
+Lu183
+Mg 23
+Mg 27
+Mg 28
+Mg 29
+Mn 51
+Mn 52
+Mn 53
+Mn 54
+Mn 56
+Mn 57
+Mn 58
+Mn 59
+Mn 60
+Mn 61
+N  13
+N  16
+N  17
+N  18
+Na 21
+Na 22
+Na 24
+Na 25
+Na 26
+Na 27
+Na 28
+Ne 19
+Ne 23
+Ne 24
+Ne 25
+Ni 55
+Ni 56
+Ni 57
+Ni 59
+Ni 63
+Ni 65
+Ni 66
+Ni 67
+Ni 68
+Ni 69
+Ni 70
+Ni 71
+O  15
+O  19
+O  20
+Os180
+Os182
+Os183
+Os184
+Os185
+Os186
+Os189
+Os190
+Os191
+Os192
+Os193
+Os194
+Os195
+Os196
+Os197
+Os198
+Os199
+Os200
+P  30
+P  32
+P  33
+P  34
+P  35
+P  36
+P  37
+Pb198
+Pb200
+Pb201
+Pb202
+Pb203
+Pb204
+Pb205
+Pb207
+Pb209
+Pb210
+Pb211
+Po204
+Po205
+Po206
+Po207
+Po208
+Po209
+Po210
+Po211
+Pt186
+Pt187
+Pt188
+Pt189
+Pt190
+Pt191
+Pt193
+Pt195
+Pt197
+Pt199
+Pt200
+Pt201
+Pt202
+Pt203
+Rb 84
+Rb 86
+Rb 89
+Re179
+Re180
+Re181
+Re182
+Re183
+Re184
+Re186
+Re187
+Re188
+Re189
+Re190
+Re191
+Re192
+Re193
+Re194
+Re195
+S  31
+S  35
+S  37
+S  38
+S  39
+S  40
+Sc 42
+Sc 43
+Sc 44
+Sc 45
+Sc 46
+Sc 47
+Sc 48
+Sc 49
+Sc 50
+Sc 51
+Se 71
+Se 72
+Se 73
+Se 75
+Se 77
+Se 79
+Se 81
+Se 83
+Si 27
+Si 31
+Si 32
+Si 33
+Si 34
+Si 35
+Sm155
+Sm157
+Sm158
+Ta173
+Ta174
+Ta175
+Ta176
+Ta177
+Ta178
+Ta179
+Ta180
+Ta182
+Ta183
+Ta184
+Ta185
+Ta186
+Ta187
+Ta188
+Tb158
+Tb160
+Tb161
+Tb162
+Tb163
+Tb164
+Tb165
+Tb166
+Ti 43
+Ti 44
+Ti 45
+Ti 51
+Ti 52
+Ti 53
+Tl198
+Tl199
+Tl200
+Tl201
+Tl202
+Tl206
+Tl207
+Tl208
+Tl209
+Tl210
+Tm163
+Tm164
+Tm165
+Tm166
+Tm167
+Tm168
+Tm170
+Tm171
+Tm172
+Tm173
+Tm174
+Tm175
+Tm176
+V  46
+V  47
+V  48
+V  49
+V  50
+V  52
+V  53
+V  54
+V  55
+V  56
+W 176
+W 177
+W 178
+W 179
+W 180
+W 181
+W 183
+W 185
+W 187
+W 188
+W 189
+W 190
+W 191
+W 192
+W 193
+Yb164
+Yb165
+Yb166
+Yb167
+Yb169
+Yb175
+Yb176
+Yb177
+Yb178
+Yb179
+Yb180
+Yb181
+Zn 61
+Zn 62
+Zn 63
+Zn 65
+Zn 69
+Zn 71
+Zn 72
+Zn 73
+Zn 74
+Zn 75
+Zn 76
