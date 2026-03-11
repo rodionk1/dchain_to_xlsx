@@ -110,6 +110,32 @@
             font-size: 14px;
             cursor: pointer;
         }
+
+        .export-options {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .export-options label {
+            font-weight: 500;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .export-options input[type="text"],
+        .export-options input[type="file"] {
+            padding: 10px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .export-options input[type="text"] {
+            min-width: 150px;
+        }
         
         .extract-btn {
             padding: 10px 24px;
@@ -279,7 +305,13 @@
                     <label for="fileInput" class="file-input-label">📂 Choose .act File</label>
                 </div>
                 <div class="file-name" id="fileName">No file selected</div>
-                <button class="export-btn" id="exportBtn">📥 Export as XLSX</button>
+                <div class="export-options">
+                    <label for="sheetNameInput">Sheet Name:</label>
+                    <input type="text" id="sheetNameInput" placeholder="Enter sheet name" value="All Regions" />
+                    <label for="existingFileInput">Add to existing Excel:</label>
+                    <input type="file" id="existingFileInput" accept=".xlsx,.xls" />
+                    <button class="export-btn" id="exportBtn">📥 Export as XLSX</button>
+                </div>
             </div>
             
             <!-- Status Messages -->
@@ -503,17 +535,27 @@
         document.getElementById('exportBtn').addEventListener('click', async () => {
             if (!currentRegions || !currentFilePath) return;
 
-            // Create workbook
-            const wb = XLSX.utils.book_new();
-
-            const allData = [];
-            allData.push(['Activation Data - All Regions - Activity values in Bq']);
-            allData.push(['']); // Empty row
+            const sheetName = document.getElementById('sheetNameInput').value || 'All Regions';
+            const existingFileInput = document.getElementById('existingFileInput');
+            const existingFile = existingFileInput && existingFileInput.files[0];
 
             showLoading(true);
             showStatus('', '');
 
             try {
+                // Load existing workbook or create new one
+                let wb;
+                if (existingFile) {
+                    const arrayBuffer = await existingFile.arrayBuffer();
+                    wb = XLSX.read(arrayBuffer, { type: 'array' });
+                } else {
+                    wb = XLSX.utils.book_new();
+                }
+
+                const allData = [];
+                allData.push(['Activation Data - All Regions - Activity values in Bq']);
+                allData.push(['']); // Empty row
+
                 for (const regionInfo of currentRegions) {
                     const region = regionInfo.region;
 
@@ -571,12 +613,13 @@
                 }
 
                 const ws = XLSX.utils.aoa_to_sheet(allData);
-                XLSX.utils.book_append_sheet(wb, ws, 'All Regions');
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
                 // Generate and download XLSX file
-                XLSX.writeFile(wb, `activation_table_all_regions.xlsx`);
+                const filename = existingFile ? `updated_${existingFile.name}` : `activation_table_all_regions.xlsx`;
+                XLSX.writeFile(wb, filename);
 
-                showStatus('All regions exported successfully!', 'success');
+                showStatus('Data exported successfully!', 'success');
             } catch (error) {
                 showStatus('Error exporting data: ' + error.message, 'error');
             } finally {
