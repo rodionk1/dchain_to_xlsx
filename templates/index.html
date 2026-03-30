@@ -586,6 +586,9 @@
 
                 const allData = [];
                 const excelSci2SigFormat = '0.0E+00';
+                const boldRowIndexes = [];
+                const regionSigmaRows = [];
+                let maxExportColumnIndex = 0;
                 allData.push(['Activation Data - All Regions - Activity values in Bq']);
                 allData.push(['']); // Empty row
 
@@ -609,6 +612,7 @@
                         // Build region table with a second ratio table to the right.
                         const activationColumnCount = 3 + result.times.length;
                         const ratioStartCol = activationColumnCount + 2; // two empty columns separation
+                        maxExportColumnIndex = Math.max(maxExportColumnIndex, ratioStartCol + result.times.length);
 
                         const regionHeaderRow = [];
                         regionHeaderRow[0] = `Region ${region}`;
@@ -648,6 +652,8 @@
 
                         allData.push(labelsRow);
                         allData.push(headerRow);
+
+                        const dataStartRow = allData.length;
 
                         // Add data rows for all isotopes and corresponding Activity/MZA ratios.
                         result.isotopes.forEach(isotope => {
@@ -694,6 +700,76 @@
                             allData.push(row);
                         });
 
+                        const dataEndRow = allData.length - 1;
+
+                        // Add sigma row (sum of activities and relative activities) for this region.
+                        const sigmaRowIndex = allData.length;
+                        const sigmaRow = [];
+                        sigmaRow[0] = 'Σ';
+                        sigmaRow[ratioStartCol] = '';
+
+                        result.times.forEach((time, idx) => {
+                            const activityCol = 3 + idx;
+                            const ratioCol = ratioStartCol + 1 + idx;
+                            const activityStart = XLSX.utils.encode_cell({ r: dataStartRow, c: activityCol });
+                            const activityEnd = XLSX.utils.encode_cell({ r: dataEndRow, c: activityCol });
+                            const ratioStart = XLSX.utils.encode_cell({ r: dataStartRow, c: ratioCol });
+                            const ratioEnd = XLSX.utils.encode_cell({ r: dataEndRow, c: ratioCol });
+
+                            sigmaRow[activityCol] = {
+                                t: 'n',
+                                f: `SUM(${activityStart}:${activityEnd})`,
+                                z: excelSci2SigFormat
+                            };
+                            sigmaRow[ratioCol] = {
+                                t: 'n',
+                                f: `SUM(${ratioStart}:${ratioEnd})`,
+                                z: excelSci2SigFormat
+                            };
+                        });
+
+                        allData.push(sigmaRow);
+                        boldRowIndexes.push(sigmaRowIndex);
+
+                        if (regionSigmaRows.length < 2) {
+                            regionSigmaRows.push({
+                                row: sigmaRowIndex,
+                                ratioStartCol,
+                                timeCount: result.times.length
+                            });
+                        }
+
+                        // Below second region output, add combined activities row for both regions.
+                        if (regionSigmaRows.length === 2 && regionSigmaRows[1].row === sigmaRowIndex) {
+                            const combinedRowIndex = allData.length;
+                            const combinedRow = [];
+                            combinedRow[0] = 'Σобщ';
+                            combinedRow[regionSigmaRows[1].ratioStartCol] = '';
+
+                            for (let idx = 0; idx < regionSigmaRows[1].timeCount; idx += 1) {
+                                const activityCol = 3 + idx;
+                                const r1Cell = XLSX.utils.encode_cell({ r: regionSigmaRows[0].row, c: activityCol });
+                                const r2Cell = XLSX.utils.encode_cell({ r: regionSigmaRows[1].row, c: activityCol });
+                                combinedRow[activityCol] = {
+                                    t: 'n',
+                                    f: `${r1Cell}+${r2Cell}`,
+                                    z: excelSci2SigFormat
+                                };
+
+                                const ratioCol = regionSigmaRows[1].ratioStartCol + 1 + idx;
+                                const ratioR1Cell = XLSX.utils.encode_cell({ r: regionSigmaRows[0].row, c: ratioCol });
+                                const ratioR2Cell = XLSX.utils.encode_cell({ r: regionSigmaRows[1].row, c: ratioCol });
+                                combinedRow[ratioCol] = {
+                                    t: 'n',
+                                    f: `${ratioR1Cell}+${ratioR2Cell}`,
+                                    z: excelSci2SigFormat
+                                };
+                            }
+
+                            allData.push(combinedRow);
+                            boldRowIndexes.push(combinedRowIndex);
+                        }
+
                         allData.push(['']); // Empty row after each region
                         allData.push(['']); // Another empty row
                     } else {
@@ -702,6 +778,18 @@
                 }
 
                 const ws = XLSX.utils.aoa_to_sheet(allData);
+
+                // Apply bold font to sigma rows.
+                const boldStyle = { font: { bold: true } };
+                boldRowIndexes.forEach((rowIndex) => {
+                    for (let col = 0; col <= maxExportColumnIndex; col += 1) {
+                        const cellRef = XLSX.utils.encode_cell({ r: rowIndex, c: col });
+                        if (ws[cellRef]) {
+                            ws[cellRef].s = boldStyle;
+                        }
+                    }
+                });
+
                 XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
                 // Save the file
