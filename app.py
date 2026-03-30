@@ -10,6 +10,38 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 
+
+def normalize_nuclide_name(name):
+    """Normalize nuclide names for robust matching (e.g. Hg-197m vs Hg197m)."""
+    return ''.join(ch.lower() for ch in name if ch.isalnum())
+
+
+def load_mza_data():
+    """Read MZA values (3rd column) from data/MZA.dat and return a normalized lookup map."""
+    mza_path = os.path.join(os.path.dirname(__file__), 'data', 'MZA.dat')
+    mza_map = {}
+
+    with open(mza_path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+
+            parts = line.split()
+            if len(parts) < 3:
+                continue
+
+            nuclide = parts[0]
+            try:
+                # File format: nuclide, MZA/kg, MZA
+                mza_value = float(parts[2])
+            except ValueError:
+                continue
+
+            mza_map[normalize_nuclide_name(nuclide)] = mza_value
+
+    return mza_map
+
 # Create uploads directory if it doesn't exist
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -75,6 +107,15 @@ def extract_data():
         }
         
         return jsonify(table_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+@app.route('/api/mza', methods=['GET'])
+def get_mza_data():
+    """Return MZA lookup table keyed by normalized nuclide name."""
+    try:
+        return jsonify({'success': True, 'mza': load_mza_data()})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 

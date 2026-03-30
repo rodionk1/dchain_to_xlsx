@@ -531,6 +531,10 @@
             return timeStr;
         }
 
+        function normalizeNuclideName(name) {
+            return String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        }
+
         // Export to XLSX
         document.getElementById('exportBtn').addEventListener('click', async () => {
             if (!currentRegions || !currentFilePath) return;
@@ -562,6 +566,13 @@
             }
 
             try {
+                const mzaResponse = await fetch('/api/mza');
+                const mzaResult = await mzaResponse.json();
+                if (!mzaResult.success || !mzaResult.mza) {
+                    throw new Error(mzaResult.error || 'Unable to load MZA data');
+                }
+                const mzaMap = mzaResult.mza;
+
                 // Load existing workbook or create new one
                 let wb;
                 if (existingFile) {
@@ -594,35 +605,76 @@
                     const result = await response.json();
 
                     if (result.data) {
-                        // Add region header
-                        allData.push([`Region ${region} `]);
-                        allData.push(['']); // Empty row
+                        // Build region table with a second ratio table to the right.
+                        const activationColumnCount = 3 + result.times.length;
+                        const ratioStartCol = activationColumnCount + 2; // two empty columns separation
 
-                        // Create header rows - handle irradiation/cooldown labels
-                        const labelsRow = ['Nuclide', 'Half-life', 'Unit'];
-                        const headerRow = ['', '', ''];
-                        result.times.forEach(time => {
+                        const regionHeaderRow = [];
+                        regionHeaderRow[0] = `Region ${region}`;
+                        regionHeaderRow[ratioStartCol] = `Region ${region} - Activity/MZA`;
+                        allData.push(regionHeaderRow);
+                        allData.push([]); // Empty row
+
+                        // Create paired header rows for activation and ratio tables.
+                        const labelsRow = [];
+                        const headerRow = [];
+                        labelsRow[0] = 'Nuclide';
+                        labelsRow[1] = 'Half-life';
+                        labelsRow[2] = 'Unit';
+                        headerRow[0] = '';
+                        headerRow[1] = '';
+                        headerRow[2] = '';
+
+                        labelsRow[ratioStartCol] = 'MZA';
+                        headerRow[ratioStartCol] = '';
+
+                        result.times.forEach((time, idx) => {
                             const formattedTime = formatCooldownTime(time);
+                            let label = '';
+                            let value = formattedTime;
                             if (formattedTime.includes(':')) {
-                                const [label, value] = formattedTime.split(':').map(s => s.trim());
-                                labelsRow.push(label);
-                                headerRow.push(value);
-                            } else {
-                                labelsRow.push('');
-                                headerRow.push(formattedTime);
+                                const parts = formattedTime.split(':');
+                                label = parts[0].trim();
+                                value = (parts[1] || '').trim();
                             }
+
+                            labelsRow[3 + idx] = label;
+                            headerRow[3 + idx] = value;
+
+                            labelsRow[ratioStartCol + 1 + idx] = label;
+                            headerRow[ratioStartCol + 1 + idx] = value;
                         });
+
                         allData.push(labelsRow);
                         allData.push(headerRow);
 
-                        // Add data rows for all isotopes
+                        // Add data rows for all isotopes and corresponding Activity/MZA ratios.
                         result.isotopes.forEach(isotope => {
                             const isotopeData = result.data[isotope];
-                            const row = [isotope, isotopeData.half_life, isotopeData.half_life_unit];
-                            result.times.forEach(time => {
+                            const row = [];
+                            row[0] = isotope;
+                            row[1] = isotopeData.half_life;
+                            row[2] = isotopeData.half_life_unit;
+
+                            result.times.forEach((time, idx) => {
                                 const activity = isotopeData[time] || 0;
-                                row.push(activity);
+                                row[3 + idx] = Number(activity).toExponential(4);
                             });
+
+                            const mza = mzaMap[normalizeNuclideName(isotope)];
+                            if (typeof mza === 'number' && mza > 0) {
+                                row[ratioStartCol] = Number(mza).toExponential(4);
+                                result.times.forEach((time, idx) => {
+                                    const activity = isotopeData[time] || 0;
+                                    row[ratioStartCol + 1 + idx] = activity / mza;
+                                });
+                            } else {
+                                row[ratioStartCol] = '';
+                                result.times.forEach((time, idx) => {
+                                    row[ratioStartCol + 1 + idx] = '';
+                                });
+                            }
+
                             allData.push(row);
                         });
 
