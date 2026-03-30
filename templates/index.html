@@ -585,6 +585,7 @@
                 }
 
                 const allData = [];
+                const excelSci2SigFormat = '0.0E+00';
                 allData.push(['Activation Data - All Regions - Activity values in Bq']);
                 allData.push(['']); // Empty row
 
@@ -651,6 +652,7 @@
                         // Add data rows for all isotopes and corresponding Activity/MZA ratios.
                         result.isotopes.forEach(isotope => {
                             const isotopeData = result.data[isotope];
+                            const rowIndex = allData.length;
                             const row = [];
                             row[0] = isotope;
                             row[1] = isotopeData.half_life;
@@ -658,15 +660,29 @@
 
                             result.times.forEach((time, idx) => {
                                 const activity = isotopeData[time] || 0;
-                                row[3 + idx] = Number(activity).toExponential(4);
+                                row[3 + idx] = {
+                                    t: 'n',
+                                    v: Number(activity),
+                                    z: excelSci2SigFormat
+                                };
                             });
 
                             const mza = mzaMap[normalizeNuclideName(isotope)];
                             if (typeof mza === 'number' && mza > 0) {
-                                row[ratioStartCol] = Number(mza).toExponential(4);
+                                row[ratioStartCol] = {
+                                    t: 'n',
+                                    v: Number(mza),
+                                    z: excelSci2SigFormat
+                                };
+
                                 result.times.forEach((time, idx) => {
-                                    const activity = isotopeData[time] || 0;
-                                    row[ratioStartCol + 1 + idx] = activity / mza;
+                                    const activityCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: 3 + idx });
+                                    const mzaCellRef = XLSX.utils.encode_cell({ r: rowIndex, c: ratioStartCol });
+                                    row[ratioStartCol + 1 + idx] = {
+                                        t: 'n',
+                                        f: `${activityCellRef}/${mzaCellRef}`,
+                                        z: excelSci2SigFormat
+                                    };
                                 });
                             } else {
                                 row[ratioStartCol] = '';
